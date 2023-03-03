@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf8
 
 # school2osm
@@ -7,35 +7,37 @@
 # Default output filename: "skoler.osm"
 
 
-import urllib2
-import cgi
-import csv
+import urllib.request, urllib.error
+import html
 import json
 import sys
+import time
+import os
+import errno
 
 
-version = "0.3.0"
+version = "1.0.0"
 
 transform_name = {
-	'vgs': u'videregående skole',
-	'VGS': u'videregående skole',
-	'Vgs': u'videregående skole',
-	'v.g.s.': u'videregående skole',
-	'V.g.s.': u'videregående skole',
-	'KVS': u'kristen videregående skole',
-	'Kvs': u'kristen videregående skole',
-	u'Videregående': u'videregående',
-	u'Vidaregåande': u'vidaregåande',
-	u'Videregåande': u'vidaregåande',
-	u'Vidregående': u'videregående',
-	u'Vidregåande': u'vidaregåande',
+	'vgs': 'videregående skole',
+	'VGS': 'videregående skole',
+	'Vgs': 'videregående skole',
+	'v.g.s.': 'videregående skole',
+	'V.g.s.': 'videregående skole',
+	'KVS': 'kristen videregående skole',
+	'Kvs': 'kristen videregående skole',
+	'Videregående': 'videregående',
+	'Vidaregåande': 'vidaregåande',
+	'Videregåande': 'vidaregåande',
+	'Vidregående': 'videregående',
+	'Vidregåande': 'vidaregåande',
 	'Bibelskole': 'bibelskole',
 	'Oppvekstsenter': 'oppvekstsenter',
-	u'Oppvekstområde': u'oppvekstområde',
+	'Oppvekstområde': 'oppvekstområde',
 	'Oppveksttun': 'oppveksttun',
 	'Oppvekst': 'oppvekstsenter',
 	'oppvekst': 'oppvekstsenter',
-	'Oahppogaldu': 'oahppogaldu',
+	'Oahppogald': 'oahppogald',
 	'Grunnskoleundervisning': 'grunnskoleundervisning',
 	'Grunnskolen': 'grunnskolen',
 	'Grunnskole': 'grunnskole',
@@ -61,35 +63,35 @@ transform_name = {
 	'Ungdomstrinn': 'ungdomstrinn',
 	'Ungdomstrinnet': 'ungdomstrinnet',
 	'Ungdom': 'ungdomsskole',
-	u'Nærmiljøskole': u'nærmiljøskole',
+	'Nærmiljøskole': 'nærmiljøskole',
 	'Friskole': 'friskole',
 	'Friskule': 'friskule',
 	'Sentralskole': 'sentralskole',
 	'Sentralskule': 'sentralskule',
 	'Grendaskole': 'grendaskole',
 	'Reindriftsskole': 'reindriftsskole',
-	u'Voksenopplæring': u'voksenopplæring',
-	u'Morsmålsopplæring': u'morsmålsopplæring',
-	u'Opplæring': u'opplæring',
-	u'10-Årige': u'10-årige',
+	'Voksenopplæring': 'voksenopplæring',
+	'Morsmålsopplæring': 'morsmålsopplæring',
+	'Opplæring': 'opplæring',
+	'10-Årige': '10-årige',
 	'Utdanning': 'utdanning',
 	'Kultursenter': 'kultursenter',
 	'Kultur': 'kultur',
 	'Flerbrukssenter': 'flerbrukssenter',
 	'Kristne': 'kristne',
 	'Skolesenter': 'skolesenter',
-	u'Læringssenter': u'læringssenter',
+	'Læringssenter': 'læringssenter',
 	'Senter': 'senter',
 	'Fengsel': 'fengsel',
-	u'Tospråklig': u'tospråklig',
-	u'Flerspråklige': u'flerspråklige',
+	'Tospråklig': 'tospråklig',
+	'Flerspråklige': 'flerspråklige',
 	'Alternative': 'alternative',
 	'Tekniske': 'tekniske',
 	'Maritime': 'maritime',
 	'Offshore': 'offshore',
 	'Omegn': 'omegn',
-	u'Åbarneskole': u'Å barneskole',
-	u'lurøy': u'Lurøy',
+	'Åbarneskole': 'Å barneskole',
+	'lurøy': 'Lurøy',
 	'hasselvika': 'Hasselvika',
 	'tjeldsund': 'Tjeldsund',
 	'Kfskolen': 'KFskolen',
@@ -101,6 +103,7 @@ transform_name = {
 	'Awt': 'AWT',
 	'Abr': 'ABR',
 	'Fpg': 'FPG',
+	'Oks': 'OKS',
 	'De': 'de',
 	'Cs': 'CS',
 	'Ii': 'II',
@@ -110,24 +113,35 @@ transform_name = {
 	'Foreningen': '',
 	'Skolelag': '',
 	'Stiftelsen': '',
+	'stiftelsen': '',
+	'Stiftinga': '',
 	'Studiested': '',
+	'Skolested': '',
 	'Avdeling': '',
 	'Avd': '',
 	'Avd.': '',
 	'avd.': '',
 	'AS': '',
 	'As': '',
-	'Sa': ''
+	'SA': '',
+	'Sa': '',
+	'BA': '',
+	'Ba': '',
+	'ANS': '',
+	'Ans': ''
 }
 
 transform_names = {
 	' og Barnehage': '',
+	' og barnehage': '',
+	' og Sfo': '',
 	'Montessori skole': 'Montessoriskole',
 	'oppvekstsenter skole': 'oppvekstsenter',
 	'oppvekstsenter skule': 'oppvekstsenter',
 	'Nordre Land kommune, ': '',
 	'Salangen kommune, ': '',
-	'Kvs-': u'Kristen videregående skole ',
+	'Kvs-': 'Kristen videregående skole ',
+	'Smi-': 'SMI-',
 	'Ntg': 'NTG'
 }
 
@@ -136,9 +150,11 @@ transform_operator = {
 	'Vgs': 'vgs',
 	'Suohkan': 'suohkan',
 	'Gielda': 'gielda',
-	u'Tjïelte': u'tjïelte',
-	'Tjielte': 'tjielte'
+	'Tjïelte': 'tjïelte',
+	'Tjielte': 'tjielte',
+	'Oks': 'OKS'
 }
+
 
 
 # Produce a tag for OSM file
@@ -146,9 +162,10 @@ transform_operator = {
 def make_osm_line (key,value):
 
 	if value:
-		encoded_key = cgi.escape(key.encode('utf-8'),True)
-		encoded_value = cgi.escape(value.encode('utf-8'),True).strip()
+		encoded_key = html.escape(key)
+		encoded_value = html.escape(value).strip()
 		file.write ('    <tag k="%s" v="%s" />\n' % (encoded_key, encoded_value))
+
 
 
 # Output message
@@ -159,26 +176,68 @@ def message (line):
 	sys.stdout.flush()
 
 
+
+# Open file/api, try up to 5 times, each time with double sleep time
+
+def try_urlopen (url):
+
+	tries = 0
+	while tries < 5:
+		try:
+			return urllib.request.urlopen(url)
+
+		except OSError as e:  # Mostly "Connection reset by peer"
+			if e.errno == errno.ECONNRESET:
+				message ("\tRetry %i in %ss...\n" % (tries + 1, 5 * (2**tries)))
+				time.sleep(5 * (2**tries))
+				tries += 1			
+	
+	message ("\n\nError: %s\n" % e.reason)
+	message ("%s\n\n" % url.get_full_url())
+	sys.exit()
+
+
+
 # Main program
 
 if __name__ == '__main__':
 
-	# Load basic information of all schools
+	message ("Loading data ...")
 
-	message ("Reading data ...")
+	# Load earlier ref from old API (legacy ref)
+
+	old_refs = {}
 
 	url = "https://data-nsr.udir.no/enheter"
-	file = urllib2.urlopen(url)
+	file = urllib.request.urlopen(url)
+	school_data = json.load(file)
+	file.close()
+
+	for school in school_data:
+		if school['NSRId'] and school['OrgNr']:
+			if school['OrgNr'] in old_refs:
+				message ("%s %s already exists\n" % (school['OrgNr'], school['Navn']))
+			else:
+				old_refs[ school['OrgNr'] ] = school['NSRId']
+
+	# Load basic information of all schools
+
+	url = "https://data-nsr.udir.no/v3/enheter?sidenummer=1&antallPerSide=30000"
+	file = urllib.request.urlopen(url)
 	school_data = json.load(file)
 	file.close()
 
 	first_count = 0
-	for school_entry in school_data:
-		if (school_entry['ErAktiv'] == True) and (school_entry['ErSkole'] == True) and (school_entry['VisesPaaWeb'] == True) and \
-			 ((school_entry['ErGrunnSkole'] == True) or (school_entry['ErVideregaaendeSkole'] == True)):
+	for school_entry in school_data['Enheter']:
+		if (school_entry['ErAktiv'] == True
+				and school_entry['ErSkole'] == True
+				and (school_entry['ErGrunnskole'] == True or school_entry['ErVideregaaendeSkole'] == True)):
 			first_count += 1
 
 	message (" %s schools\n" % first_count)
+
+	if school_data['AntallSider'] > 1:
+		message ("*** Note: There are more data from API than loaded\n")
 
 	# Get output filename
 
@@ -198,13 +257,15 @@ if __name__ == '__main__':
 
 	node_id = -1000
 	count = 0
+	geocode = 0
 
 	# Iterate all schools and produce OSM file
 
-	for school_entry in school_data:
+	for school_entry in school_data['Enheter']:
 
-		if (school_entry['ErAktiv'] == True) and (school_entry['ErSkole'] == True) and (school_entry['VisesPaaWeb'] == True) and \
-			 ((school_entry['ErGrunnSkole'] == True) or (school_entry['ErVideregaaendeSkole'] == True)):
+		if (school_entry['ErAktiv'] == True
+				and school_entry['ErSkole'] == True
+				and (school_entry['ErGrunnskole'] == True or school_entry['ErVideregaaendeSkole'] == True)):
 
 			node_id -= 1
 			count += 1
@@ -213,10 +274,11 @@ if __name__ == '__main__':
 
 			# Load school details
 
-			url = "https://data-nsr.udir.no/enhet/" + str(school_entry['NSRId'])
-			school_file = urllib2.urlopen(url)
+			url = "https://data-nsr.udir.no/v3/enhet/" + str(school_entry['Orgnr'])
+			school_file = try_urlopen(url)
 			school = json.load(school_file)
 			school_file.close()
+#			time.sleep(3)
 
 			# Fix school name
 
@@ -227,8 +289,8 @@ if __name__ == '__main__':
 
 			if school['Karakteristikk']:
 				original_name += ", " + school['Karakteristikk']
-			 	if not(school['Karakteristikk'].lower() in \
-					["skole", "skule", "skolen", "skulen", "avd skule", "avd skole", "avd undervisning", "avdeling skole", "avdeling skule"]):
+				if (school['Karakteristikk'].lower() not in
+						["skole", "skule", "skolen", "skulen", "avd skule", "avd skole", "avd undervisning", "avdeling skole", "avdeling skule"]):
 					name += ", " + school['Karakteristikk']
 
 			if name == name.upper():
@@ -257,13 +319,13 @@ if __name__ == '__main__':
 			name = name[0].upper() + name[1:].replace(" ,", ",").replace(",,", ",").replace("  ", " ").strip("- ")
 
 #			if school['Maalform'] == "Nynorsk":
-#				name = name.replace("skole", "skule").replace(u"videregående", u"vidaregåande")
+#				name = name.replace("skole", "skule").replace("videregående", "vidaregåande")
 
 			# Generate tags
 
-			if school['Koordinater']:
-				latitude = school['Koordinater']['Breddegrad']
-				longitude = school['Koordinater']['Lengdegrad']
+			if school['Koordinat']:
+				latitude = school['Koordinat']['Breddegrad']
+				longitude = school['Koordinat']['Lengdegrad']
 				if not(latitude or longitude):
 					latitude = 0
 					longitude = 0
@@ -274,21 +336,27 @@ if __name__ == '__main__':
 			file.write ('  <node id="%i" lat="%s" lon="%s">\n' % (node_id, latitude, longitude))
 
 			make_osm_line ("amenity", "school")
-			make_osm_line ("ref:udir_nsr", str(school['NSRId']))
+			make_osm_line ("reff:udir_orgnr", str(school['Orgnr']))
 			make_osm_line ("name", name)
-			make_osm_line ("email", school['Epost'].lower())
+
+			if school['Orgnr'] in old_refs:
+				make_osm_line ("ref:udir_nsr", str(old_refs[ school['Orgnr'] ]))
+
+			if school['Epost']:
+				make_osm_line ("email", school['Epost'].lower())
 
 			if school['Url'] and not("@" in school['Url']):
 				make_osm_line ("website", "http://" + school['Url'].lstrip("/").replace("www2.", "").replace("www.", "").replace(" ",""))
 
-			phone = school['Telefon'].replace("  ", " ")
-			if phone:
-				if phone[0] != "+":
-					if phone[0:2] == "00":
-						phone = "+" + phone[2:].lstrip()
-					else:
-						phone = "+47 " + phone
-				make_osm_line ("phone", phone)
+			if school['Telefon']:
+				phone = school['Telefon'].replace("  ", " ")
+				if phone:
+					if phone[0] != "+":
+						if phone[0:2] == "00":
+							phone = "+" + phone[2:].lstrip()
+						else:
+							phone = "+47 " + phone
+					make_osm_line ("phone", phone)
 
 			if school['Elevtall']:
 				make_osm_line ("capacity", str(school['Elevtall']))
@@ -296,38 +364,54 @@ if __name__ == '__main__':
 			# Get school type
 
 			isced = ""
-			if school['SkoleTrinnFra'] and school['SkoleTrinnTil']:
-				if school['SkoleTrinnFra'] == school['SkoleTrinnTil']:
-					make_osm_line ("grades", str(school['SkoleTrinnFra']))
-				else:
-					make_osm_line ("grades", str(school['SkoleTrinnFra']) + "-" + str(school['SkoleTrinnTil']))
+			grade1 = ""
+			grade2 = ""
 
-				if school['SkoleTrinnFra'] <= 7:
+			if school['SkoletrinnGSFra'] and school['SkoletrinnGSTil']:
+				grade1 = school['SkoletrinnGSFra']
+				grade2 = school['SkoletrinnGSTil']
+
+			if school['SkoletrinnVGSFra'] and school['SkoletrinnVGSTil']:
+				if not grade1:
+					grade1 = school['SkoletrinnVGSFra']
+				grade2 = school['SkoletrinnVGSTil']				
+
+			if grade1 and grade2:
+				if grade1 == grade2:
+					make_osm_line ("grades", str(grade1))
+				else:
+					make_osm_line ("grades", str(grade1) + "-" + str(grade2))
+
+				if grade1 <= 7:
 					isced = "1"
-				if (school['SkoleTrinnFra'] <= 10) and (school['SkoleTrinnTil'] >= 8):
+				if grade1 <= 10 and grade2 >= 8:
 					isced += ";2"
-				if (school['SkoleTrinnFra'] >= 11) or (school['SkoleTrinnTil'] >= 11):
+				if grade1 >= 11 or grade2 >= 11:
 					isced += ";3"
 
-			if not(isced):
-				if school['ErGrunnSkole']:
+			if not isced:
+				if school['ErGrunnskole']:
 					isced = "1;2"
 				if school['ErVideregaaendeSkole']:
 					isced += ";3"
 
 			make_osm_line ("isced:level", isced.strip(";"))
 
+			# Check for "Andre tjenester tilknyttet undervisning" code
+			if any([code['Kode'] == "85.609" for code in school["Naeringskoder"]]):
+				make_osm_line ("OTHER_SERVICES", "yes")
+
 			# Get operator
 
 			if school['ErOffentligSkole'] == True:
 				make_osm_line ("operator:type", "public")
 				make_osm_line ("fee", "no")
-			if school['ErPrivatSkole'] == True:
+			elif school['ErPrivatskole'] == True:
 				make_osm_line ("operator:type", "private")
 				make_osm_line ("fee", "yes")
 
-			for parent in school['ParentRelasjoner']:
-				if (parent['RelasjonsType']['Id'] == "1") and parent['Enhet']['Navn']:  # Owner
+			for parent in school['ForeldreRelasjoner']:
+				if parent['Relasjonstype']['Id'] == "1" and parent['Enhet']['Navn']:  # Owner
 
 					operator_split = parent['Enhet']['Navn'].split()
 					operator = ""
@@ -343,33 +427,47 @@ if __name__ == '__main__':
 
 			# Generate extra tags for help during import
 
-			if school['GsiId'] != "0":
-				make_osm_line ("GSIID", school['GsiId'])
+#			if school['GsiId'] != "0":
+#				make_osm_line ("GSIID", school['GsiId'])
 
-			make_osm_line ("LANGUAGE", school['Maalform'])
-			make_osm_line ("DATE_CREATED", school['OpprettetDato'][0:10])
-			make_osm_line ("DATE_UPDATED", school['SistEndretDato'][0:10])
+			if school['DatoFoedt']:
+				make_osm_line ("DATE_CREATED", school['DatoFoedt'][0:10])
+
+			make_osm_line ("DATE_UPDATED", school['DatoEndret'][0:10])
 			make_osm_line ("MUNICIPALITY", school['Kommune']['Navn'])
 			make_osm_line ("COUNTY", school['Fylke']['Navn'])
 			make_osm_line ("DEPARTMENT", school['Karakteristikk'])
+			make_osm_line ("LANGUAGE", school['Maalform']['Navn'])
+
+			make_osm_line("ENTITY_CODES", "; ".join(["%i.%s" % (code['Prioritet'], code['Navn']) for code in school['Naeringskoder']]))
+			make_osm_line("SCHOOL_CODES", str("; ".join([code['Navn'] for code in school['Skolekategorier']])))
+
+			if school['ErSpesialskole'] == True:
+				make_osm_line ("SPECIAL_NEEDS", "Spesialskole")
 
 			if name != original_name:
 				make_osm_line ("ORIGINAL_NAME", original_name)
 
-			if school['Koordinater']:
-				make_osm_line ("GEOCODE_SOURCE", school['Koordinater']['GeoKvalitet'])
+			if school['Koordinat']:
+				make_osm_line ("LOCATION_SOURCE", school['Koordinat']['GeoKilde'])
 
-			address = school['Besoksadresse']
+			address = school['Beliggenhetsadresse']
 			if address:
 				address_line = ""
-				if address['Adress'] and (address['Adress'] != "-"):
-					address_line = address['Adress'] + ", "
+				if address['Adresse'] and (address['Adresse'] != "-"):
+					address_line = address['Adresse'] + ", "
 				if address['Postnr']:
 					address_line += address['Postnr'] + " "
 				if address['Poststed']:
 					address_line += address['Poststed']
+				if address['Land'] and address['Land'] != "Norge":
+					address_line += ", " + address['Land']
 				if address_line:
 					make_osm_line ("ADDRESS", address_line)
+
+			if not (longitude or latitude):
+				make_osm_line ("GEOCODE", "yes")
+				geocode += 1
 
 			# Done with OSM node
 
@@ -381,3 +479,4 @@ if __name__ == '__main__':
 	file.close()
 
 	message ("\r%i schools written to file\n" % count)
+	message ("%i schools need geocoding\n\n" % geocode)
