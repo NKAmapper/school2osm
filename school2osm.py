@@ -16,7 +16,7 @@ import os
 import errno
 
 
-version = "1.0.0"
+version = "1.1.0"
 
 transform_name = {
 	'vgs': 'videregående skole',
@@ -205,7 +205,7 @@ if __name__ == '__main__':
 	message ("Loading data ...")
 
 	# Load earlier ref from old API (legacy ref)
-
+	'''
 	old_refs = {}
 
 	url = "https://data-nsr.udir.no/enheter"
@@ -219,6 +219,7 @@ if __name__ == '__main__':
 				message ("%s %s already exists\n" % (school['OrgNr'], school['Navn']))
 			else:
 				old_refs[ school['OrgNr'] ] = school['NSRId']
+	'''
 
 	# Load basic information of all schools
 
@@ -278,7 +279,7 @@ if __name__ == '__main__':
 			school_file = try_urlopen(url)
 			school = json.load(school_file)
 			school_file.close()
-#			time.sleep(3)
+#			time.sleep(1)
 
 			# Fix school name
 
@@ -336,17 +337,17 @@ if __name__ == '__main__':
 			file.write ('  <node id="%i" lat="%s" lon="%s">\n' % (node_id, latitude, longitude))
 
 			make_osm_line ("amenity", "school")
-			make_osm_line ("reff:udir_orgnr", str(school['Orgnr']))
+			make_osm_line ("ref:udir_nsr", str(school['Orgnr']))
 			make_osm_line ("name", name)
 
-			if school['Orgnr'] in old_refs:
-				make_osm_line ("ref:udir_nsr", str(old_refs[ school['Orgnr'] ]))
+#			if school['Orgnr'] in old_refs:
+#				make_osm_line ("OLD_REF", str(old_refs[ school['Orgnr'] ]))
 
 			if school['Epost']:
 				make_osm_line ("email", school['Epost'].lower())
 
 			if school['Url'] and not("@" in school['Url']):
-				make_osm_line ("website", "http://" + school['Url'].lstrip("/").replace("www2.", "").replace("www.", "").replace(" ",""))
+				make_osm_line ("website", "https://" + school['Url'].lstrip("/").replace("www2.", "").replace("www.", "").replace(" ",""))
 
 			if school['Telefon']:
 				phone = school['Telefon'].replace("  ", " ")
